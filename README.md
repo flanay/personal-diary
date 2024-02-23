@@ -1,4 +1,4 @@
-This is a simple and intuitive diary application that allows users to record their daily thoughts, experiences, and moods, providing a personal space for reflection and introspection.
+This is a simple and intuitive diary application that allows users to record their daily thoughts and moods, providing a personal space for reflection and introspection.
 
 Features
 1. Daily Entries
