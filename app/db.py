@@ -1,45 +1,40 @@
 from csv import DictReader, DictWriter
 from pathlib import Path
 
+import sqlite3
+
 
 class Data:
-    """Abstracts the interaction with a CSV file, to write and read data."""
-    def __init__(self, columns: dict[str], primary_key: str, filename: Path):
+    '''Store data in a Sqlite file'''
+
+    def __init__(self, columns: tuple[str, ...], filename: Path):
         self.columns = columns
-        self.primary_key = primary_key
+        self.key = columns[0] 
         self.filename = filename
+        self.table = filename.stem 
 
     def init(self):
-        """Creates the storage file with the specified columns as header."""
-        open(self.filename, 'a').close()
-
-        with open(self.filename, "r+", newline='') as file:
-            writer = DictWriter(file, fieldnames=self.columns.keys())
-            writer.writeheader()
-
+        self.connection = sqlite3.connect(self.filename)
+        self.connection.row_factory = sqlite3.Row
+        self.db = self.connection.cursor()
+        create_table = 'CREATE TABLE IF NOT EXISTS {}{}'.format(self.table, repr(self.columns))
+        create_index = 'CREATE UNIQUE INDEX IF NOT EXISTS index_{} ON {} ({})'.format(self.key, self.table, self.key)
+        for command in (create_table, create_index): self.db.execute(command)
     
     def all(self):
-        with open(self.filename, 'r') as file:
-            reader = DictReader(file, fieldnames=self.columns.keys())
-            next(reader)
-            return tuple(self._with_typed_values(row) for row in reader)
+        query = 'SELECT * FROM {} ORDER BY {} DESC'.format(self.table, self.key)
 
+        return (dict(row) for row in self.db.execute(query).fetchall())
 
     def find(self, key: str) -> dict:
-        """Iterates over each row in the storage file and returns a row containing the given key as a dict when it exists, or an empty dict otherwise."""
-        with open(self.filename, 'r') as file:
-            for row in DictReader(file):
-                row = self._with_typed_values(row)
-                
-                if row[self.primary_key] == key:
-                    return row
-        
-        return {}
+        query = "SELECT * FROM {} WHERE {} = '{}'".format(self.table, self.key, key)
+
+        if row := self.db.execute(query).fetchone():
+            return dict(row)
 
     def write(self, row: dict) -> None:
-        """Writes the given `dict` as a row in the storage file."""
-        with open(self.filename, 'a', newline='') as file:
-            DictWriter(file, fieldnames=self.columns.keys()).writerow(row)
-    
-    def _with_typed_values(self, row: dict[str]) -> dict[str]:
-        return { key : self.columns[key](value) for key, value in row.items() } # dict comprehension: https://peps.python.org/pep-0274/
+        columns = repr(tuple(row.keys()))
+        values = repr(tuple(row.values()))
+        command = 'INSERT INTO {}{} VALUES {}'.format(self.table, columns, values)
+        self.db.execute(command)
+        self.connection.commit()

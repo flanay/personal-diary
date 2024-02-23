@@ -1,7 +1,7 @@
 from models import Page
-from views import Window
+from views import App
 
 
 if __name__ == '__main__':
     Page.data.init()
-    Window('Personal Diary').render()
+    App('Personal Diary').render()
